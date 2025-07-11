@@ -1,3 +1,10 @@
+import os
+import socket
+import json
+from dotenv import load_dotenv
+
+load_dotenv()
+
 def get_user_input(prompt, options=None, allow_empty=True):
     """
     Requests user input, validates options and required field.
@@ -22,58 +29,52 @@ def collect_filters():
         print("Vou fazer algumas perguntas para te ajudar a encontrar o carro ideal.\n")
         filters = {}
 
-        # Marca
         brand = get_user_input("Qual marca de carro você procura? (Ex: Toyota, Ford, Chevrolet, qualquer) ")
         if brand and brand.lower() not in ["qualquer", "tanto faz"]:
-            filters["marca"] = brand.title()
+            filters["brand"] = brand.title()
 
-        # Modelo
         model = get_user_input("Tem algum modelo específico em mente? (ou pressione ENTER para pular) ")
         if model:
-            filters["modelo"] = model.title()
+            filters["model"] = model.title()
 
-        # Ano
         year = get_user_input("Qual o ano mínimo desejado? (ou pressione ENTER para pular) ")
         if year:
             if year.isdigit() and 1900 <= int(year) <= 2100:
-                filters["ano"] = int(year)
+                filters["year"] = int(year)
             elif year:
                 print("Ano inválido. Informe um valor entre 1900 e 2100 ou deixe em branco.")
 
-        # Tipo de combustível
         fuel_options = ["Gasolina", "Etanol", "Diesel", "Flex", "qualquer", ""]
         fuel_type = get_user_input(
             "Prefere algum tipo de combustível? (Gasolina, Etanol, Diesel, Flex, qualquer) ",
             options=fuel_options
         )
         if fuel_type and fuel_type.lower() not in ["qualquer", "tanto faz"]:
-            filters["combustível"] = fuel_type.title()
+            filters["fuel_type"] = fuel_type.title()
 
-        # Cor
         color = get_user_input("Cor preferida? (ou pressione ENTER para pular) ")
         if color:
-            filters["cor"] = color.title()
+            filters["color"] = color.title()
 
-        # Transmissão
         transmission_options = ["Manual", "Automático", "tanto faz", ""]
         transmission = get_user_input(
             "Prefere câmbio manual ou automático? (Manual, Automático, tanto faz) ",
             options=transmission_options
         )
         if transmission and transmission.lower() not in ["tanto faz"]:
-            filters["transmissão"] = transmission.title()
+            filters["transmission"] = transmission.title()
 
-        # Faixa de preço
         min_price = get_user_input("Qual o valor mínimo (em reais)? (ou pressione ENTER para pular) ")
         if min_price:
             if min_price.replace('.', '', 1).isdigit() and float(min_price) >= 0:
-                filters["preço_minimo"] = float(min_price)
+                filters["min_price"] = float(min_price)
             else:
                 print("Valor mínimo inválido. Informe um número positivo ou deixe em branco.")
+
         max_price = get_user_input("Qual o valor máximo (em reais)? (ou pressione ENTER para pular) ")
         if max_price:
             if max_price.replace('.', '', 1).isdigit() and float(max_price) >= 0:
-                filters["preço_maximo"] = float(max_price)
+                filters["max_price"] = float(max_price)
             else:
                 print("Valor máximo inválido. Informe um número positivo ou deixe em branco.")
 
@@ -89,7 +90,41 @@ def collect_filters():
             print("Ótimo! Procurando veículos para você...\n")
             return filters
 
-# Exemplo de uso:
+def send_filters_to_server(filters):
+    host = os.getenv("SERVER_HOST")
+    port = os.getenv("SERVER_PORT")
+    if not host or not port:
+        print("SERVER_HOST or SERVER_PORT environment variable not set.")
+        return None
+    try:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
+            s.settimeout(10)
+            s.connect((host, int(port)))
+            message = json.dumps(filters).encode('utf-8')
+            s.sendall(message)
+            data = s.recv(4096)
+            try:
+                response = json.loads(data.decode('utf-8'))
+            except json.JSONDecodeError:
+                print("Erro ao decodificar resposta do servidor.")
+                return None
+            return response
+    except ConnectionRefusedError:
+        print("Não foi possível conectar ao servidor. Certifique-se que o servidor está rodando.")
+        return None
+
 if __name__ == "__main__":
     filters = collect_filters()
-    # Aqui você pode seguir para enviar os filtros ao servidor!
+    results = send_filters_to_server(filters)
+    if results is not None:
+        print("=== Veículos encontrados ===")
+        if not results:
+            print("Nenhum veículo encontrado com os filtros fornecidos.")
+        else:
+            for car in results:
+                print(
+                    f"Marca: {car.get('brand')}, Modelo: {car.get('model')}, "
+                    f"Ano: {car.get('year')}, Cor: {car.get('color')}, "
+                    f"Quilometragem: {car.get('mileage')} km, "
+                    f"Preço: R${car.get('price')}"
+                )
