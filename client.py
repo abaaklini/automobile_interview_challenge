@@ -31,16 +31,16 @@ def collect_filters():
 
         brand = get_user_input("Qual marca de carro você procura? (Ex: Toyota, Ford, Chevrolet, qualquer) ")
         if brand and brand.lower() not in ["qualquer", "tanto faz"]:
-            filters["brand"] = brand.title()
+            filters["marca"] = brand.title()
 
         model = get_user_input("Tem algum modelo específico em mente? (ou pressione ENTER para pular) ")
         if model:
-            filters["model"] = model.title()
+            filters["modelo"] = model.title()
 
         year = get_user_input("Qual o ano mínimo desejado? (ou pressione ENTER para pular) ")
         if year:
             if year.isdigit() and 1900 <= int(year) <= 2100:
-                filters["year"] = int(year)
+                filters["ano"] = int(year)
             elif year:
                 print("Ano inválido. Informe um valor entre 1900 e 2100 ou deixe em branco.")
 
@@ -50,11 +50,11 @@ def collect_filters():
             options=fuel_options
         )
         if fuel_type and fuel_type.lower() not in ["qualquer", "tanto faz"]:
-            filters["fuel_type"] = fuel_type.title()
+            filters["combustível"] = fuel_type.title()
 
         color = get_user_input("Cor preferida? (ou pressione ENTER para pular) ")
         if color:
-            filters["color"] = color.title()
+            filters["cor"] = color.title()
 
         transmission_options = ["Manual", "Automático", "tanto faz", ""]
         transmission = get_user_input(
@@ -62,21 +62,47 @@ def collect_filters():
             options=transmission_options
         )
         if transmission and transmission.lower() not in ["tanto faz"]:
-            filters["transmission"] = transmission.title()
+            filters["transmissão"] = transmission.title()
 
         min_price = get_user_input("Qual o valor mínimo (em reais)? (ou pressione ENTER para pular) ")
         if min_price:
             if min_price.replace('.', '', 1).isdigit() and float(min_price) >= 0:
-                filters["min_price"] = float(min_price)
+                filters["preço_mínimo"] = float(min_price)
             else:
                 print("Valor mínimo inválido. Informe um número positivo ou deixe em branco.")
 
         max_price = get_user_input("Qual o valor máximo (em reais)? (ou pressione ENTER para pular) ")
         if max_price:
             if max_price.replace('.', '', 1).isdigit() and float(max_price) >= 0:
-                filters["max_price"] = float(max_price)
+                filters["preço_máximo"] = float(max_price)
             else:
                 print("Valor máximo inválido. Informe um número positivo ou deixe em branco.")
+
+        engine_options = ["1.0", "1.4", "1.6", "1.8", "2.0", "2.4", "qualquer", ""]
+        engine = get_user_input(
+            "Qual o tamanho do motor? (1.0, 1.4, 1.6, 1.8, 2.0, 2.4, qualquer) ",
+            options=engine_options
+        )
+        if engine and engine.lower() not in ["qualquer", "tanto faz"]:
+            filters["motor"] = engine.title()
+
+        doors_options = ["2", "4", "tanto faz", ""]
+        doors = get_user_input(
+            "Quantas portas? (2, 4, tanto faz) ",
+            options=doors_options
+        )
+        if doors and doors.lower() not in ["tanto faz"]:
+            if doors in ["2", "4"]:
+                filters["portas"] = int(doors)
+            else:
+                print("Opção inválida. Informe 2, 4 ou deixe em branco.")
+
+        mileage = get_user_input("Qual a quilometragem máxima desejada? (em km, ou pressione ENTER para pular) ")
+        if mileage:
+            if mileage.isdigit() and int(mileage) >= 0:
+                filters["quilometragem"] = int(mileage)
+            else:
+                print("Quilometragem inválida. Informe um número positivo ou deixe em branco.") 
 
         print("\nResumo da sua busca:")
         for k, v in filters.items():
@@ -92,14 +118,14 @@ def collect_filters():
 
 def send_filters_to_server(filters):
     host = os.getenv("SERVER_HOST")
-    port = os.getenv("SERVER_PORT")
+    port = int(os.getenv("SERVER_PORT"))
     if not host or not port:
         print("SERVER_HOST or SERVER_PORT environment variable not set.")
         return None
     try:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
             s.settimeout(10)
-            s.connect((host, int(port)))
+            s.connect((host, port))
             message = json.dumps(filters).encode('utf-8')
             s.sendall(message)
             data = s.recv(4096)
@@ -126,5 +152,9 @@ if __name__ == "__main__":
                     f"Marca: {car.get('brand')}, Modelo: {car.get('model')}, "
                     f"Ano: {car.get('year')}, Cor: {car.get('color')}, "
                     f"Quilometragem: {car.get('mileage')} km, "
-                    f"Preço: R${car.get('price')}"
+                    f"Preço: R${car.get('price')}, "
+                    f"Combustível: {car.get('fuel_type')}, "
+                    f"Transmissão: {car.get('transmission')}, "
+                    f"Portas: {car.get('doors')}, Motor: {car.get('engine')}, "
+                    f"Placa: {car.get('license_plate')}"
                 )
